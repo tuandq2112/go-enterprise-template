@@ -1,0 +1,129 @@
+# Mockery configuration file
+# This file configures mockery to generate mocks for all interfaces
+
+# Global settings
+with-expecter: true
+packages:
+  # Domain layer repositories
+  go-clean-ddd-es-template/internal/domain/repositories:
+    interfaces:
+      UserRepository:
+        config:
+          dir: "internal/domain/repositories/mocks"
+          filename: "UserRepository.go"
+          outpkg: "mocks"
+          packageprefix: "mocks"
+      UserReadRepository:
+        config:
+          dir: "internal/domain/repositories/mocks"
+          filename: "UserReadRepository.go"
+          outpkg: "mocks"
+          packageprefix: "mocks"
+      UserWriteRepository:
+        config:
+          dir: "internal/domain/repositories/mocks"
+          filename: "UserWriteRepository.go"
+          outpkg: "mocks"
+          packageprefix: "mocks"
+      EventStore:
+        config:
+          dir: "internal/domain/repositories/mocks"
+          filename: "EventStore.go"
+          outpkg: "mocks"
+          packageprefix: "mocks"
+      EventPublisher:
+        config:
+          dir: "internal/domain/repositories/mocks"
+          filename: "EventPublisher.go"
+          outpkg: "mocks"
+          packageprefix: "mocks"
+
+  # Infrastructure layer message broker
+  go-clean-ddd-es-template/internal/infrastructure/messagebroker:
+    interfaces:
+      MessageBroker:
+        config:
+          dir: "internal/infrastructure/messagebroker/mocks"
+          filename: "MessageBroker.go"
+          outpkg: "mocks"
+          packageprefix: "mocks"
+
+  # Infrastructure layer database
+  go-clean-ddd-es-template/internal/infrastructure/database:
+    interfaces:
+      Database:
+        config:
+          dir: "internal/infrastructure/database/mocks"
+          filename: "Database.go"
+          outpkg: "mocks"
+          packageprefix: "mocks"
+
+  # Package layer tracing
+  go-clean-ddd-es-template/pkg/tracing:
+    interfaces:
+      Tracer:
+        config:
+          dir: "pkg/tracing/mocks"
+          filename: "Tracer.go"
+          outpkg: "mocks"
+          packageprefix: "mocks"
+
+  # Package layer metrics
+  go-clean-ddd-es-template/pkg/metrics:
+    interfaces:
+      Metrics:
+        config:
+          dir: "pkg/metrics/mocks"
+          filename: "Metrics.go"
+          outpkg: "mocks"
+          packageprefix: "mocks"
+
+  # Package layer logger
+  go-clean-ddd-es-template/pkg/logger:
+    interfaces:
+      Logger:
+        config:
+          dir: "pkg/logger/mocks"
+          filename: "Logger.go"
+          outpkg: "mocks"
+          packageprefix: "mocks"
+
+  # Package layer cache
+  go-clean-ddd-es-template/pkg/cache:
+    interfaces:
+      Cache:
+        config:
+          dir: "pkg/cache/mocks"
+          filename: "Cache.go"
+          outpkg: "mocks"
+          packageprefix: "mocks"
+
+  # Package layer validation
+  go-clean-ddd-es-template/pkg/validation:
+    interfaces:
+      Validator:
+        config:
+          dir: "pkg/validation/mocks"
+          filename: "Validator.go"
+          outpkg: "mocks"
+          packageprefix: "mocks"
+
+  # Package layer health
+  go-clean-ddd-es-template/pkg/health:
+    interfaces:
+      HealthChecker:
+        config:
+          dir: "pkg/health/mocks"
+          filename: "HealthChecker.go"
+          outpkg: "mocks"
+          packageprefix: "mocks"
+
+  # Infrastructure layer consumers
+  go-clean-ddd-es-template/internal/infrastructure/consumers:
+    interfaces:
+      EventHandler:
+        config:
+          dir: "internal/infrastructure/consumers/mocks"
+          filename: "EventHandler.go"
+          outpkg: "mocks"
+          packageprefix: "mocks" 

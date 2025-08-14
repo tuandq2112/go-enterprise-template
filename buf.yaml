@@ -1,0 +1,10 @@
+version: v1
+name: buf.build/example/go-clean-ddd-es-template
+deps:
+  - buf.build/googleapis/googleapis
+lint:
+  use:
+    - DEFAULT
+breaking:
+  use:
+    - FILE 
