@@ -37,10 +37,124 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+.env.development
+.env.test
+.env.production
 
 # Log files
 *.log
+logs/
 
 # Build output
 bin/
-dist/ 
+dist/
+build/
+
+# Generated files
+wire_gen.go
+*.pb.go
+*.pb.gw.go
+*_grpc.pb.go
+
+# Mock files (if generated)
+mocks/
+
+# Coverage reports
+coverage.out
+coverage.html
+coverage.xml
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker
+.dockerignore
+
+# Kubernetes
+*.kubeconfig
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Node.js (if using any frontend tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python (if using any Python tools)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Java (if using any Java tools)
+*.class
+*.jar
+*.war
+*.ear
+target/
+
+# IDE specific
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/usage.statistics.xml
+.idea/dictionaries/
+.idea/shelf/
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Cache directories
+.cache/
+.cache-*/
+
+# Local development
+local/
+dev/
+development/
+
+# Secrets and sensitive files
+secrets/
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.csr
+
+# Application specific
+data/
+uploads/
+downloads/ 
