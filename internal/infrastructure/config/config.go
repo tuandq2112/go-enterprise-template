@@ -129,9 +129,31 @@ func Load() *Config {
 			Type:    getEnv("MESSAGE_BROKER_TYPE", "kafka"),
 			Brokers: strings.Split(getEnv("MESSAGE_BROKER_BROKERS", "localhost:9092"), ","),
 			Topics: map[string]string{
-				"user.created": "user-events",
-				"user.updated": "user-events",
-				"user.deleted": "user-events",
+				// High-volume events: Separate topics
+				"user.login":   "user.login",
+				"user.logout":  "user.logout",
+				"product.view": "product.view",
+
+				// Medium-volume events: Domain-grouped topics
+				"user.created":    "user-events",
+				"user.updated":    "user-events",
+				"user.deleted":    "user-events",
+				"order.created":   "order-events",
+				"order.updated":   "order-events",
+				"order.cancelled": "order-events",
+				"product.created": "product-events",
+				"product.updated": "product-events",
+				"product.deleted": "product-events",
+
+				// Low-volume events: Bounded-context grouped topics
+				"admin.login":        "admin-events",
+				"admin.logout":       "admin-events",
+				"admin.create_user":  "admin-events",
+				"admin.delete_user":  "admin-events",
+				"system.backup":      "system-events",
+				"system.maintenance": "system-events",
+				"audit.log":          "audit-events",
+				"security.event":     "audit-events",
 			},
 			GroupID:  getEnv("MESSAGE_BROKER_GROUP_ID", "user-service"),
 			Exchange: getEnv("MESSAGE_BROKER_EXCHANGE", "user-events"),

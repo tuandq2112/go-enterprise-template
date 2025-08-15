@@ -57,7 +57,7 @@ func InitializeGRPCServer() (*grpc.GRPCServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	eventPublisher := provideEventPublisher(messageBroker)
+	eventPublisher := provideEventPublisher(messageBroker, config)
 	userCreateCommandHandler := provideUserCreateCommandHandler(userWriteRepository, eventStore, eventPublisher)
 	userUpdateCommandHandler := provideUserUpdateCommandHandler(userWriteRepository, eventStore, eventPublisher)
 	userDeleteCommandHandler := provideUserDeleteCommandHandler(userWriteRepository, eventStore, eventPublisher)
@@ -228,7 +228,24 @@ func provideEventConsumer(
 	cfg *config.Config,
 ) *consumers.EventConsumer {
 	consumer := broker.GetConsumer()
-	topics := []string{"user.created", "user.updated", "user.deleted", "product.created", "product.updated", "product.deleted"}
+
+	topicSet := make(map[string]bool)
+	for _, topic := range cfg.MessageBroker.Topics {
+		topicSet[topic] = true
+	}
+
+	// Convert to slice
+	var topics []string
+	for topic := range topicSet {
+		topics = append(topics, topic)
+	}
+
+	fallbackTopics := []string{"product.created", "product.updated", "product.deleted"}
+	for _, topic := range fallbackTopics {
+		if !topicSet[topic] {
+			topics = append(topics, topic)
+		}
+	}
 
 	eventConsumer := consumers.NewEventConsumer(consumer, cfg.MessageBroker.GroupID, topics)
 
@@ -265,8 +282,8 @@ func provideEventStore(factory *repositories.RepositoryFactory) (repositories2.E
 }
 
 // provideEventPublisher provides event publisher
-func provideEventPublisher(broker messagebroker.MessageBroker) repositories2.EventPublisher {
-	return repositories.NewMessageBrokerEventPublisher(broker)
+func provideEventPublisher(broker messagebroker.MessageBroker, cfg *config.Config) repositories2.EventPublisher {
+	return repositories.NewMessageBrokerEventPublisher(broker, cfg)
 }
 
 // Command Handlers (Write Operations)

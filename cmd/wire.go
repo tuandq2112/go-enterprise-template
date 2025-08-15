@@ -130,7 +130,26 @@ func provideEventConsumer(
 	cfg *config.Config,
 ) *consumers.EventConsumer {
 	consumer := broker.GetConsumer()
-	topics := []string{"user.created", "user.updated", "user.deleted", "product.created", "product.updated", "product.deleted"}
+
+	// Get unique topics from config mapping
+	topicSet := make(map[string]bool)
+	for _, topic := range cfg.MessageBroker.Topics {
+		topicSet[topic] = true
+	}
+
+	// Convert to slice
+	var topics []string
+	for topic := range topicSet {
+		topics = append(topics, topic)
+	}
+
+	// Add fallback topics for events not in config
+	fallbackTopics := []string{"product.created", "product.updated", "product.deleted"}
+	for _, topic := range fallbackTopics {
+		if !topicSet[topic] {
+			topics = append(topics, topic)
+		}
+	}
 
 	eventConsumer := consumers.NewEventConsumer(consumer, cfg.MessageBroker.GroupID, topics)
 
@@ -170,8 +189,8 @@ func provideEventStore(factory *infraRepos.RepositoryFactory) (repositories.Even
 }
 
 // provideEventPublisher provides event publisher
-func provideEventPublisher(broker messagebroker.MessageBroker) repositories.EventPublisher {
-	return infraRepos.NewMessageBrokerEventPublisher(broker)
+func provideEventPublisher(broker messagebroker.MessageBroker, cfg *config.Config) repositories.EventPublisher {
+	return infraRepos.NewMessageBrokerEventPublisher(broker, cfg)
 }
 
 // Command Handlers (Write Operations)
