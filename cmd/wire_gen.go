@@ -7,6 +7,8 @@
 package cmd
 
 import (
+	"time"
+
 	"go-clean-ddd-es-template/internal/application/commands"
 	"go-clean-ddd-es-template/internal/application/queries"
 	"go-clean-ddd-es-template/internal/application/services"
@@ -22,7 +24,6 @@ import (
 	"go-clean-ddd-es-template/pkg/logger"
 	"go-clean-ddd-es-template/pkg/middleware"
 	"go-clean-ddd-es-template/pkg/tracing"
-	"time"
 )
 
 // Injectors from wire.go:
@@ -92,7 +93,7 @@ func InitializeGRPCServer() (*grpc.GRPCServer, error) {
 }
 
 // InitializeEventConsumer initializes event consumer with all dependencies
-func InitializeEventConsumer() (*consumers.EventConsumer, error) {
+func InitializeEventConsumer() (*consumers.EventConsumerWrapper, error) {
 	messageBrokerFactory := provideMessageBrokerFactory()
 	config := provideConfig()
 	messageBroker, err := provideMessageBroker(messageBrokerFactory, config)
@@ -226,7 +227,7 @@ func provideEventConsumer(
 	userEventHandler *consumers.UserEventHandler,
 	productEventHandler *consumers.ProductEventHandler,
 	cfg *config.Config,
-) *consumers.EventConsumer {
+) *consumers.EventConsumerWrapper {
 	consumer := broker.GetConsumer()
 
 	topicSet := make(map[string]bool)
@@ -247,7 +248,7 @@ func provideEventConsumer(
 		}
 	}
 
-	eventConsumer := consumers.NewEventConsumer(consumer, cfg.MessageBroker.GroupID, topics)
+	eventConsumer := consumers.NewEventConsumerWrapper(consumer, cfg.MessageBroker.GroupID, topics)
 
 	eventConsumer.RegisterEventHandler("user.created", userEventHandler)
 	eventConsumer.RegisterEventHandler("user.updated", userEventHandler)
@@ -272,7 +273,6 @@ func provideUserReadRepository(factory *repositories.RepositoryFactory) (reposit
 
 // provideUserRepository provides user repository (combines write and read)
 func provideUserRepository(writeRepo repositories2.UserWriteRepository, readRepo repositories2.UserReadRepository) repositories2.UserRepository {
-
 	return writeRepo.(repositories2.UserRepository)
 }
 
@@ -393,7 +393,6 @@ func provideGRPCServer(
 	userService *services.UserService,
 	authService *services.AuthService,
 	tracer *tracing.Tracer, logger2 logger.Logger,
-
 ) *grpc.GRPCServer {
 	return grpc.NewGRPCServer(userService, authService, tracer, logger2)
 }

@@ -40,7 +40,6 @@ func (h *UserEventsQueryHandler) Handle(ctx context.Context, query dto.GetUserEv
 		}
 
 		eventRecords[i] = dto.EventRecord{
-			EventID:   event.ID.Hex(),
 			EventType: event.EventType,
 			Data:      string(eventDataJSON),
 			Timestamp: event.Timestamp.Format("2006-01-02T15:04:05Z07:00"),

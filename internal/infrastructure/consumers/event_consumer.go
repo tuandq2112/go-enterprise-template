@@ -2,141 +2,180 @@ package consumers
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
+	"time"
 
-	"github.com/IBM/sarama"
+	"go-clean-ddd-es-template/internal/domain/entities"
+	"go-clean-ddd-es-template/internal/domain/events"
+	"go-clean-ddd-es-template/pkg/resilience"
 )
 
-// EventHandler defines the interface for handling specific event types
-type EventHandler interface {
-	HandleEvent(ctx context.Context, eventType string, eventData map[string]interface{}) error
-}
-
-// EventConsumer is a generic consumer that can handle events for multiple models
+// EventConsumer handles event consumption with dead letter queue
 type EventConsumer struct {
-	consumer      sarama.Consumer
-	eventHandlers map[string]EventHandler
-	consumerGroup string
-	topics        []string
+	eventHandlers   map[string]EventHandler
+	deadLetterQueue *resilience.DeadLetterQueue
+	logger          Logger
 }
 
-// NewEventConsumer creates a new generic event consumer
-func NewEventConsumer(
-	consumer sarama.Consumer,
-	consumerGroup string,
-	topics []string,
-) *EventConsumer {
+// EventHandler interface for handling specific event types
+type EventHandler interface {
+	HandleEvent(ctx context.Context, event *entities.UserEvent) error
+}
+
+// Logger interface for logging
+type Logger interface {
+	Info(msg string, args ...interface{})
+	Error(msg string, args ...interface{})
+	Warn(msg string, args ...interface{})
+}
+
+// EventConsumerConfig holds configuration for event consumer
+type EventConsumerConfig struct {
+	DLQConfig resilience.DeadLetterQueueConfig
+}
+
+// DefaultEventConsumerConfig returns default configuration
+func DefaultEventConsumerConfig() EventConsumerConfig {
+	return EventConsumerConfig{
+		DLQConfig: resilience.DefaultDeadLetterQueueConfig(),
+	}
+}
+
+// NewEventConsumer creates a new event consumer with dead letter queue
+func NewEventConsumer(config EventConsumerConfig, logger Logger) *EventConsumer {
+	// Create dead letter queue with in-memory storage for now
+	dlq := resilience.NewDeadLetterQueue(config.DLQConfig, nil, nil)
+
 	return &EventConsumer{
-		consumer:      consumer,
-		eventHandlers: make(map[string]EventHandler),
-		consumerGroup: consumerGroup,
-		topics:        topics,
+		eventHandlers:   make(map[string]EventHandler),
+		deadLetterQueue: dlq,
+		logger:          logger,
 	}
 }
 
-// RegisterEventHandler registers an event handler for a specific event type
-func (c *EventConsumer) RegisterEventHandler(eventType string, handler EventHandler) {
-	c.eventHandlers[eventType] = handler
+// RegisterHandler registers an event handler for a specific event type
+func (ec *EventConsumer) RegisterHandler(eventType string, handler EventHandler) {
+	ec.eventHandlers[eventType] = handler
 }
 
-// Start starts consuming events from Kafka
-func (c *EventConsumer) Start(ctx context.Context) error {
-	log.Printf("Starting event consumer for topics: %v", c.topics)
-	for _, topic := range c.topics {
-		log.Printf("Starting consumer for topic: %s", topic)
-		go c.consumeTopic(ctx, topic)
-	}
-	return nil
-}
-
-// consumeTopic consumes events from a specific topic
-func (c *EventConsumer) consumeTopic(ctx context.Context, topic string) {
-	log.Printf("Getting partitions for topic: %s", topic)
-	partitions, err := c.consumer.Partitions(topic)
-	if err != nil {
-		log.Printf("Failed to get partitions for topic %s: %v", topic, err)
-		return
-	}
-	log.Printf("Found %d partitions for topic: %s", len(partitions), topic)
-
-	for _, partition := range partitions {
-		partitionConsumer, err := c.consumer.ConsumePartition(topic, partition, sarama.OffsetNewest)
-		if err != nil {
-			log.Printf("Failed to create partition consumer for topic %s, partition %d: %v", topic, partition, err)
-			continue
-		}
-
-		go c.consumePartition(ctx, partitionConsumer)
-	}
-}
-
-// consumePartition consumes events from a specific partition
-func (c *EventConsumer) consumePartition(ctx context.Context, partitionConsumer sarama.PartitionConsumer) {
-	defer partitionConsumer.Close()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case msg := <-partitionConsumer.Messages():
-			if err := c.handleMessage(ctx, msg); err != nil {
-				log.Printf("Failed to handle message from topic %s: %v", msg.Topic, err)
-			}
-		case err := <-partitionConsumer.Errors():
-			log.Printf("Error consuming from partition: %v", err)
-		}
-	}
-}
-
-// handleMessage handles a single Kafka message
-func (c *EventConsumer) handleMessage(ctx context.Context, msg *sarama.ConsumerMessage) error {
-	log.Printf("Received message from topic %s: %s", msg.Topic, string(msg.Value))
-
-	// Parse the event
-	var event map[string]interface{}
-	if err := json.Unmarshal(msg.Value, &event); err != nil {
+// HandleMessage processes a message with dead letter queue
+func (ec *EventConsumer) HandleMessage(ctx context.Context, message []byte) error {
+	// Parse event from message broker format
+	var event events.Event
+	if err := json.Unmarshal(message, &event); err != nil {
+		ec.logger.Error("Failed to unmarshal event: %v", err)
 		return fmt.Errorf("failed to unmarshal event: %w", err)
 	}
 
-	// Extract event type
-	eventType, ok := event["type"].(string)
-	if !ok {
-		return fmt.Errorf("invalid event type")
+	// Convert to UserEvent format for processing
+	userEvent := &entities.UserEvent{
+		UserID:    "", // Will be extracted from event data
+		EventType: event.Type,
+		EventData: make(map[string]interface{}),
+		Timestamp: event.Timestamp,
+		Version:   event.Version,
 	}
 
-	// Extract event data (base64 encoded)
-	dataStr, ok := event["data"].(string)
-	if !ok {
-		return fmt.Errorf("invalid event data")
+	// Parse event data
+	if len(event.Data) > 0 {
+		if err := json.Unmarshal(event.Data, &userEvent.EventData); err != nil {
+			ec.logger.Error("Failed to unmarshal event data: %v", err)
+			return fmt.Errorf("failed to unmarshal event data: %w", err)
+		}
 	}
 
-	// Decode base64 data
-	decodedData, err := base64.StdEncoding.DecodeString(dataStr)
+	// Extract user_id from event data
+	if userID, ok := userEvent.EventData["user_id"].(string); ok {
+		userEvent.UserID = userID
+	}
+
+	// Process the event
+	err := ec.processEvent(ctx, userEvent)
 	if err != nil {
-		return fmt.Errorf("failed to decode base64 data: %w", err)
+		// If processing failed, add to dead letter queue
+		eventData := map[string]interface{}{
+			"user_id":    userEvent.UserID,
+			"event_type": userEvent.EventType,
+			"event_data": userEvent.EventData,
+			"timestamp":  userEvent.Timestamp,
+		}
+
+		metadata := map[string]string{
+			"source": "event_consumer",
+			"error":  err.Error(),
+		}
+
+		if dlqErr := ec.deadLetterQueue.AddEvent(ctx, userEvent.EventType, eventData, err, metadata); dlqErr != nil {
+			ec.logger.Error("Failed to add event to dead letter queue: %v", dlqErr)
+		} else {
+			ec.logger.Warn("Event added to dead letter queue: %s, error: %v", userEvent.EventType, err)
+		}
+
+		return err
 	}
 
-	// Parse decoded data as JSON
-	var data map[string]interface{}
-	if err := json.Unmarshal(decodedData, &data); err != nil {
-		return fmt.Errorf("failed to unmarshal decoded data: %w", err)
-	}
-
-	// Find and call appropriate handler
-	handler, exists := c.eventHandlers[eventType]
-	if !exists {
-		log.Printf("No handler registered for event type: %s", eventType)
-		return nil
-	}
-
-	// Handle the event
-	if err := handler.HandleEvent(ctx, eventType, data); err != nil {
-		return fmt.Errorf("failed to handle event %s: %w", eventType, err)
-	}
-
-	log.Printf("Successfully processed event: %s", eventType)
+	ec.logger.Info("Successfully processed event: %s for user: %s", userEvent.EventType, userEvent.UserID)
 	return nil
+}
+
+// processEvent processes a single event
+func (ec *EventConsumer) processEvent(ctx context.Context, event *entities.UserEvent) error {
+	// Find and execute handler
+	handler, exists := ec.eventHandlers[event.EventType]
+	if !exists {
+		return fmt.Errorf("no handler registered for event type: %s", event.EventType)
+	}
+
+	// Execute handler with retry logic
+	return ec.executeWithRetry(ctx, func() error {
+		return handler.HandleEvent(ctx, event)
+	})
+}
+
+// executeWithRetry executes a function with retry logic
+func (ec *EventConsumer) executeWithRetry(ctx context.Context, fn func() error) error {
+	maxAttempts := 3
+	delay := time.Second
+
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if err := fn(); err == nil {
+			return nil
+		} else {
+			lastErr = err
+			if attempt < maxAttempts {
+				ec.logger.Warn("Attempt %d failed, retrying in %v: %v", attempt, delay, err)
+				time.Sleep(delay)
+				delay *= 2 // Exponential backoff
+			}
+		}
+	}
+
+	return fmt.Errorf("failed after %d attempts: %w", maxAttempts, lastErr)
+}
+
+// GetDLQStats returns dead letter queue statistics
+func (ec *EventConsumer) GetDLQStats(ctx context.Context) (resilience.DLQStats, error) {
+	return ec.deadLetterQueue.GetStats(ctx)
+}
+
+// RetryFailedEvent retries a failed event from dead letter queue
+func (ec *EventConsumer) RetryFailedEvent(ctx context.Context, eventID string) error {
+	return ec.deadLetterQueue.RetryEvent(ctx, eventID)
+}
+
+// ListFailedEvents lists failed events from dead letter queue
+func (ec *EventConsumer) ListFailedEvents(ctx context.Context, limit, offset int) ([]*resilience.FailedEvent, error) {
+	return ec.deadLetterQueue.ListEvents(ctx, limit, offset)
+}
+
+// GetFailedEvent gets a specific failed event from dead letter queue
+func (ec *EventConsumer) GetFailedEvent(ctx context.Context, eventID string) (*resilience.FailedEvent, error) {
+	return ec.deadLetterQueue.GetEvent(ctx, eventID)
+}
+
+// DeleteFailedEvent deletes a failed event from dead letter queue
+func (ec *EventConsumer) DeleteFailedEvent(ctx context.Context, eventID string) error {
+	return ec.deadLetterQueue.DeleteEvent(ctx, eventID)
 }

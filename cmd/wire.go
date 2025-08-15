@@ -128,7 +128,7 @@ func provideEventConsumer(
 	userEventHandler *consumers.UserEventHandler,
 	productEventHandler *consumers.ProductEventHandler,
 	cfg *config.Config,
-) *consumers.EventConsumer {
+) *consumers.EventConsumerWrapper {
 	consumer := broker.GetConsumer()
 
 	// Get unique topics from config mapping
@@ -151,7 +151,7 @@ func provideEventConsumer(
 		}
 	}
 
-	eventConsumer := consumers.NewEventConsumer(consumer, cfg.MessageBroker.GroupID, topics)
+	eventConsumer := consumers.NewEventConsumerWrapper(consumer, cfg.MessageBroker.GroupID, topics)
 
 	// Register user event handlers
 	eventConsumer.RegisterEventHandler("user.created", userEventHandler)
@@ -345,7 +345,7 @@ func InitializeGRPCServer() (*grpc.GRPCServer, error) {
 }
 
 // InitializeEventConsumer initializes event consumer with all dependencies
-func InitializeEventConsumer() (*consumers.EventConsumer, error) {
+func InitializeEventConsumer() (*consumers.EventConsumerWrapper, error) {
 	wire.Build(
 		provideConfig,
 		provideDatabaseFactory,

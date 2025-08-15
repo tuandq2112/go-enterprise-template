@@ -18,14 +18,13 @@ type UserReadModel struct {
 	Version   int                `bson:"version" json:"version"`
 }
 
-// UserEvent represents a user event for MongoDB storage
+// UserEvent represents a user event for serialization (without MongoDB ObjectID)
 type UserEvent struct {
-	ID        primitive.ObjectID     `bson:"_id,omitempty" json:"id"`
-	UserID    string                 `bson:"user_id" json:"user_id"`
-	EventType string                 `bson:"event_type" json:"event_type"`
-	EventData map[string]interface{} `bson:"event_data" json:"event_data"`
-	Timestamp time.Time              `bson:"timestamp" json:"timestamp"`
-	Version   int                    `bson:"version" json:"version"`
+	UserID    string                 `json:"user_id"`
+	EventType string                 `json:"event_type"`
+	EventData map[string]interface{} `json:"event_data"`
+	Timestamp time.Time              `json:"timestamp"`
+	Version   int                    `json:"version"`
 }
 
 // UserSummary represents a summary of user for listing

@@ -134,7 +134,23 @@ func (h *UserEventHandler) handleUserDeleted(ctx context.Context, data map[strin
 	// Get existing user from MongoDB
 	existingUser, err := h.readRepository.GetUserByID(ctx, userID)
 	if err != nil {
-		return err
+		// If user doesn't exist, create a minimal user record for deletion
+		existingUser = &entities.UserReadModel{
+			UserID:    userID,
+			Email:     "", // Will be filled from event data if available
+			Name:      "", // Will be filled from event data if available
+			CreatedAt: deletedAt,
+			UpdatedAt: deletedAt,
+			Version:   1,
+		}
+
+		// Try to get email and name from event data
+		if email, ok := data["email"].(string); ok {
+			existingUser.Email = email
+		}
+		if name, ok := data["name"].(string); ok {
+			existingUser.Name = name
+		}
 	}
 
 	// Soft delete user
@@ -142,9 +158,12 @@ func (h *UserEventHandler) handleUserDeleted(ctx context.Context, data map[strin
 	existingUser.UpdatedAt = deletedAt
 	existingUser.Version++
 
-	// Save to MongoDB
+	// Save to MongoDB (create if not exists, update if exists)
 	if err := h.readRepository.UpdateUser(ctx, existingUser); err != nil {
-		return err
+		// If update fails, try to create
+		if err := h.readRepository.SaveUser(ctx, existingUser); err != nil {
+			return err
+		}
 	}
 
 	// Save event to MongoDB

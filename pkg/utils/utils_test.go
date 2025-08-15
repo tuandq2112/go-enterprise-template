@@ -1,6 +1,7 @@
 package utils_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -238,4 +239,131 @@ func TestRemoveDuplicates(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestRetry(t *testing.T) {
+	tests := []struct {
+		name             string
+		maxAttempts      int
+		delay            time.Duration
+		failCount        int
+		expectError      bool
+		expectedAttempts int
+	}{
+		{
+			name:             "success on first attempt",
+			maxAttempts:      3,
+			delay:            10 * time.Millisecond,
+			failCount:        0,
+			expectError:      false,
+			expectedAttempts: 1,
+		},
+		{
+			name:             "success on second attempt",
+			maxAttempts:      3,
+			delay:            10 * time.Millisecond,
+			failCount:        1,
+			expectError:      false,
+			expectedAttempts: 2,
+		},
+		{
+			name:             "success on last attempt",
+			maxAttempts:      3,
+			delay:            10 * time.Millisecond,
+			failCount:        2,
+			expectError:      false,
+			expectedAttempts: 3,
+		},
+		{
+			name:             "failure after all attempts",
+			maxAttempts:      3,
+			delay:            10 * time.Millisecond,
+			failCount:        5,
+			expectError:      true,
+			expectedAttempts: 3,
+		},
+		{
+			name:             "single attempt success",
+			maxAttempts:      1,
+			delay:            10 * time.Millisecond,
+			failCount:        0,
+			expectError:      false,
+			expectedAttempts: 1,
+		},
+		{
+			name:             "single attempt failure",
+			maxAttempts:      1,
+			delay:            10 * time.Millisecond,
+			failCount:        1,
+			expectError:      true,
+			expectedAttempts: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			attemptCount := 0
+			fn := func() error {
+				attemptCount++
+				if attemptCount <= tt.failCount {
+					return fmt.Errorf("attempt %d failed", attemptCount)
+				}
+				return nil
+			}
+
+			err := utils.Retry(tt.maxAttempts, tt.delay, fn)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), fmt.Sprintf("failed after %d attempts", tt.maxAttempts))
+			} else {
+				assert.NoError(t, err)
+			}
+
+			assert.Equal(t, tt.expectedAttempts, attemptCount)
+		})
+	}
+}
+
+func TestRetry_ZeroDelay(t *testing.T) {
+	attemptCount := 0
+	fn := func() error {
+		attemptCount++
+		if attemptCount < 3 {
+			return fmt.Errorf("attempt %d failed", attemptCount)
+		}
+		return nil
+	}
+
+	start := time.Now()
+	err := utils.Retry(3, 0, fn)
+	duration := time.Since(start)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 3, attemptCount)
+	// With zero delay, execution should be very fast
+	assert.Less(t, duration, 100*time.Millisecond)
+}
+
+func TestRetry_WithDelay(t *testing.T) {
+	attemptCount := 0
+	fn := func() error {
+		attemptCount++
+		if attemptCount < 2 {
+			return fmt.Errorf("attempt %d failed", attemptCount)
+		}
+		return nil
+	}
+
+	delay := 50 * time.Millisecond
+	start := time.Now()
+	err := utils.Retry(3, delay, fn)
+	duration := time.Since(start)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, attemptCount)
+	// Should have at least one delay
+	assert.GreaterOrEqual(t, duration, delay)
+	// But not more than 2 delays (since we succeed on attempt 2)
+	assert.Less(t, duration, 3*delay)
 }

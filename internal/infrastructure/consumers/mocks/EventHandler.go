@@ -4,6 +4,7 @@ package mocks
 
 import (
 	context "context"
+	entities "go-clean-ddd-es-template/internal/domain/entities"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -21,17 +22,17 @@ func (_m *MockEventHandler) EXPECT() *MockEventHandler_Expecter {
 	return &MockEventHandler_Expecter{mock: &_m.Mock}
 }
 
-// HandleEvent provides a mock function with given fields: ctx, eventType, eventData
-func (_m *MockEventHandler) HandleEvent(ctx context.Context, eventType string, eventData map[string]interface{}) error {
-	ret := _m.Called(ctx, eventType, eventData)
+// HandleEvent provides a mock function with given fields: ctx, event
+func (_m *MockEventHandler) HandleEvent(ctx context.Context, event *entities.UserEvent) error {
+	ret := _m.Called(ctx, event)
 
 	if len(ret) == 0 {
 		panic("no return value specified for HandleEvent")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, map[string]interface{}) error); ok {
-		r0 = rf(ctx, eventType, eventData)
+	if rf, ok := ret.Get(0).(func(context.Context, *entities.UserEvent) error); ok {
+		r0 = rf(ctx, event)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -46,15 +47,14 @@ type MockEventHandler_HandleEvent_Call struct {
 
 // HandleEvent is a helper method to define mock.On call
 //   - ctx context.Context
-//   - eventType string
-//   - eventData map[string]interface{}
-func (_e *MockEventHandler_Expecter) HandleEvent(ctx interface{}, eventType interface{}, eventData interface{}) *MockEventHandler_HandleEvent_Call {
-	return &MockEventHandler_HandleEvent_Call{Call: _e.mock.On("HandleEvent", ctx, eventType, eventData)}
+//   - event *entities.UserEvent
+func (_e *MockEventHandler_Expecter) HandleEvent(ctx interface{}, event interface{}) *MockEventHandler_HandleEvent_Call {
+	return &MockEventHandler_HandleEvent_Call{Call: _e.mock.On("HandleEvent", ctx, event)}
 }
 
-func (_c *MockEventHandler_HandleEvent_Call) Run(run func(ctx context.Context, eventType string, eventData map[string]interface{})) *MockEventHandler_HandleEvent_Call {
+func (_c *MockEventHandler_HandleEvent_Call) Run(run func(ctx context.Context, event *entities.UserEvent)) *MockEventHandler_HandleEvent_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(map[string]interface{}))
+		run(args[0].(context.Context), args[1].(*entities.UserEvent))
 	})
 	return _c
 }
@@ -64,7 +64,7 @@ func (_c *MockEventHandler_HandleEvent_Call) Return(_a0 error) *MockEventHandler
 	return _c
 }
 
-func (_c *MockEventHandler_HandleEvent_Call) RunAndReturn(run func(context.Context, string, map[string]interface{}) error) *MockEventHandler_HandleEvent_Call {
+func (_c *MockEventHandler_HandleEvent_Call) RunAndReturn(run func(context.Context, *entities.UserEvent) error) *MockEventHandler_HandleEvent_Call {
 	_c.Call.Return(run)
 	return _c
 }
