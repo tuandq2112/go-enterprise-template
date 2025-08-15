@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"go-clean-ddd-es-template/internal/domain/entities"
+	"go-clean-ddd-es-template/internal/infrastructure/config"
 
 	"github.com/IBM/sarama"
 )
@@ -38,10 +39,16 @@ func (a *EventHandlerAdapter) HandleEvent(ctx context.Context, event *entities.U
 	return a.legacyHandler.HandleEvent(ctx, event.EventType, eventData)
 }
 
+// EventConsumerInterface defines the common interface for event consumers
+type EventConsumerInterface interface {
+	RegisterHandler(eventType string, handler EventHandler)
+	HandleMessage(ctx context.Context, message []byte) error
+}
+
 // EventConsumerWrapper wraps the new EventConsumer to maintain compatibility
 type EventConsumerWrapper struct {
 	consumer      sarama.Consumer
-	eventConsumer *EventConsumer
+	eventConsumer EventConsumerInterface
 	consumerGroup string
 	topics        []string
 	stopChan      chan struct{}
@@ -56,6 +63,20 @@ func NewEventConsumerWrapper(consumer sarama.Consumer, consumerGroup string, top
 	// Create event consumer with default config
 	config := DefaultEventConsumerConfig()
 	eventConsumer := NewEventConsumer(config, logger)
+
+	return &EventConsumerWrapper{
+		consumer:      consumer,
+		eventConsumer: eventConsumer,
+		consumerGroup: consumerGroup,
+		topics:        topics,
+		stopChan:      make(chan struct{}),
+	}
+}
+
+// NewEventConsumerWrapperWithWorkerPool creates a new event consumer wrapper with worker pool
+func NewEventConsumerWrapperWithWorkerPool(consumer sarama.Consumer, consumerGroup string, topics []string, config *config.Config, logger Logger) *EventConsumerWrapper {
+	// Create worker pool event consumer
+	eventConsumer := NewWorkerPoolEventConsumer(config, consumer, logger)
 
 	return &EventConsumerWrapper{
 		consumer:      consumer,

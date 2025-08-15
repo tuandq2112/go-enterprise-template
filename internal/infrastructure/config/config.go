@@ -57,6 +57,10 @@ type MessageBrokerConfig struct {
 	Channel string
 	// NATS specific
 	Subject string
+	// Worker Pool Configuration
+	PublisherWorkers int // Number of workers for publishing events
+	ConsumerWorkers  int // Number of workers for consuming events
+	WorkerBufferSize int // Buffer size for worker channels
 }
 
 type TracingConfig struct {
@@ -173,11 +177,14 @@ func Load() *Config {
 				"audit.log":          "audit-events",
 				"security.event":     "audit-events",
 			},
-			GroupID:  getEnv("MESSAGE_BROKER_GROUP_ID", "user-service"),
-			Exchange: getEnv("MESSAGE_BROKER_EXCHANGE", "user-events"),
-			Queue:    getEnv("MESSAGE_BROKER_QUEUE", "user-events"),
-			Channel:  getEnv("MESSAGE_BROKER_CHANNEL", "user-events"),
-			Subject:  getEnv("MESSAGE_BROKER_SUBJECT", "user.events"),
+			GroupID:          getEnv("MESSAGE_BROKER_GROUP_ID", "user-service"),
+			Exchange:         getEnv("MESSAGE_BROKER_EXCHANGE", "user-events"),
+			Queue:            getEnv("MESSAGE_BROKER_QUEUE", "user-events"),
+			Channel:          getEnv("MESSAGE_BROKER_CHANNEL", "user-events"),
+			Subject:          getEnv("MESSAGE_BROKER_SUBJECT", "user.events"),
+			PublisherWorkers: getEnvAsInt("MESSAGE_BROKER_PUBLISHER_WORKERS", 5),
+			ConsumerWorkers:  getEnvAsInt("MESSAGE_BROKER_CONSUMER_WORKERS", 10),
+			WorkerBufferSize: getEnvAsInt("MESSAGE_BROKER_WORKER_BUFFER_SIZE", 100),
 		},
 		Tracing: TracingConfig{
 			Enabled:     getEnv("TRACING_ENABLED", "true") == "true",

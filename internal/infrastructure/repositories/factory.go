@@ -6,6 +6,7 @@ import (
 	"go-clean-ddd-es-template/internal/domain/repositories"
 	"go-clean-ddd-es-template/internal/infrastructure/config"
 	"go-clean-ddd-es-template/internal/infrastructure/database"
+	"go-clean-ddd-es-template/internal/infrastructure/messagebroker"
 
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -63,7 +64,12 @@ func (f *RepositoryFactory) CreateEventStore() (repositories.EventStore, error) 
 
 // CreateEventPublisher creates event publisher based on config
 func (f *RepositoryFactory) CreateEventPublisher(broker interface{}) (repositories.EventPublisher, error) {
-	// This would be injected from message broker factory
-	// For now, we'll assume it's already created
-	return nil, fmt.Errorf("event publisher should be created separately")
+	// Cast broker to MessageBroker interface
+	messageBroker, ok := broker.(messagebroker.MessageBroker)
+	if !ok {
+		return nil, fmt.Errorf("invalid broker type for event publisher")
+	}
+
+	// Create worker pool event publisher
+	return NewWorkerPoolEventPublisher(messageBroker, f.config), nil
 }

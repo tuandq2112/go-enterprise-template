@@ -151,7 +151,11 @@ func provideEventConsumer(
 		}
 	}
 
-	eventConsumer := consumers.NewEventConsumerWrapper(consumer, cfg.MessageBroker.GroupID, topics)
+	// Create logger for event consumer
+	logger := &consumers.SimpleLogger{}
+
+	// Create event consumer with worker pool
+	eventConsumer := consumers.NewEventConsumerWrapperWithWorkerPool(consumer, cfg.MessageBroker.GroupID, topics, cfg, logger)
 
 	// Register user event handlers
 	eventConsumer.RegisterEventHandler("user.created", userEventHandler)
