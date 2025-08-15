@@ -101,8 +101,27 @@ func (m *MongoDB) Connect() error {
 		uri = fmt.Sprintf("mongodb://%s:%s", m.config.Host, m.config.Port)
 	}
 
+	// Configure MongoDB client options with connection pool settings
+	clientOptions := options.Client().ApplyURI(uri)
+
+	// Configure connection pool settings
+	if m.config.MaxOpenConns > 0 {
+		clientOptions.SetMaxPoolSize(uint64(m.config.MaxOpenConns))
+		fmt.Printf("Set MongoDB MaxPoolSize to %d\n", m.config.MaxOpenConns)
+	}
+
+	if m.config.MaxIdleConns > 0 {
+		clientOptions.SetMinPoolSize(uint64(m.config.MaxIdleConns))
+		fmt.Printf("Set MongoDB MinPoolSize to %d\n", m.config.MaxIdleConns)
+	}
+
+	if m.config.ConnMaxLifetime > 0 {
+		clientOptions.SetMaxConnIdleTime(m.config.ConnMaxIdleTime)
+		fmt.Printf("Set MongoDB MaxConnIdleTime to %v\n", m.config.ConnMaxIdleTime)
+	}
+
 	// Connect to MongoDB
-	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(uri))
+	client, err := mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
 		return fmt.Errorf("failed to connect to MongoDB: %w", err)
 	}

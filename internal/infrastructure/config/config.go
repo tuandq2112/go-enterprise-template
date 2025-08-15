@@ -4,6 +4,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -36,6 +37,11 @@ type DatabaseConfig struct {
 	Charset   string
 	ParseTime bool
 	Loc       string
+	// Connection Pool Configuration
+	MaxOpenConns    int           // Maximum number of open connections to the database
+	MaxIdleConns    int           // Maximum number of idle connections in the pool
+	ConnMaxLifetime time.Duration // Maximum amount of time a connection may be reused
+	ConnMaxIdleTime time.Duration // Maximum amount of time a connection can be idle
 }
 
 type MessageBrokerConfig struct {
@@ -89,41 +95,53 @@ func Load() *Config {
 			Port: getEnv("PORT", "8080"),
 		},
 		WriteDatabase: DatabaseConfig{
-			Type:       getEnv("WRITE_DB_TYPE", "postgres"),
-			Host:       getEnv("WRITE_DB_HOST", "localhost"),
-			Port:       getEnv("WRITE_DB_PORT", "5432"),
-			User:       getEnv("WRITE_DB_USER", "postgres"),
-			Password:   getEnv("WRITE_DB_PASSWORD", "password"),
-			DBName:     getEnv("WRITE_DB_NAME", "clean_ddd_write_db"),
-			Collection: getEnv("WRITE_DB_COLLECTION", "users"),
-			Charset:    getEnv("WRITE_DB_CHARSET", "utf8mb4"),
-			ParseTime:  getEnv("WRITE_DB_PARSE_TIME", "true") == "true",
-			Loc:        getEnv("WRITE_DB_LOC", "Local"),
+			Type:            getEnv("WRITE_DB_TYPE", "postgres"),
+			Host:            getEnv("WRITE_DB_HOST", "localhost"),
+			Port:            getEnv("WRITE_DB_PORT", "5432"),
+			User:            getEnv("WRITE_DB_USER", "postgres"),
+			Password:        getEnv("WRITE_DB_PASSWORD", "password"),
+			DBName:          getEnv("WRITE_DB_NAME", "clean_ddd_write_db"),
+			Collection:      getEnv("WRITE_DB_COLLECTION", "users"),
+			Charset:         getEnv("WRITE_DB_CHARSET", "utf8mb4"),
+			ParseTime:       getEnv("WRITE_DB_PARSE_TIME", "true") == "true",
+			Loc:             getEnv("WRITE_DB_LOC", "Local"),
+			MaxOpenConns:    getEnvAsInt("WRITE_DB_MAX_OPEN_CONNS", 25),
+			MaxIdleConns:    getEnvAsInt("WRITE_DB_MAX_IDLE_CONNS", 5),
+			ConnMaxLifetime: getEnvAsDuration("WRITE_DB_CONN_MAX_LIFETIME", 5*time.Minute),
+			ConnMaxIdleTime: getEnvAsDuration("WRITE_DB_CONN_MAX_IDLE_TIME", 5*time.Minute),
 		},
 		ReadDatabase: DatabaseConfig{
-			Type:       getEnv("READ_DB_TYPE", "mongodb"),
-			Host:       getEnv("READ_DB_HOST", "localhost"),
-			Port:       getEnv("READ_DB_PORT", "27017"),
-			User:       getEnv("READ_DB_USER", "admin"),
-			Password:   getEnv("READ_DB_PASSWORD", "password"),
-			DBName:     getEnv("READ_DB_NAME", "clean_ddd_read_db"),
-			URI:        getEnv("READ_DB_URI", "mongodb://admin:password@localhost:27017"),
-			Collection: getEnv("READ_DB_COLLECTION", "users"),
-			Charset:    getEnv("READ_DB_CHARSET", "utf8mb4"),
-			ParseTime:  getEnv("READ_DB_PARSE_TIME", "true") == "true",
-			Loc:        getEnv("READ_DB_LOC", "Local"),
+			Type:            getEnv("READ_DB_TYPE", "mongodb"),
+			Host:            getEnv("READ_DB_HOST", "localhost"),
+			Port:            getEnv("READ_DB_PORT", "27017"),
+			User:            getEnv("READ_DB_USER", "admin"),
+			Password:        getEnv("READ_DB_PASSWORD", "password"),
+			DBName:          getEnv("READ_DB_NAME", "clean_ddd_read_db"),
+			URI:             getEnv("READ_DB_URI", "mongodb://admin:password@localhost:27017"),
+			Collection:      getEnv("READ_DB_COLLECTION", "users"),
+			Charset:         getEnv("READ_DB_CHARSET", "utf8mb4"),
+			ParseTime:       getEnv("READ_DB_PARSE_TIME", "true") == "true",
+			Loc:             getEnv("READ_DB_LOC", "Local"),
+			MaxOpenConns:    getEnvAsInt("READ_DB_MAX_OPEN_CONNS", 25),
+			MaxIdleConns:    getEnvAsInt("READ_DB_MAX_IDLE_CONNS", 5),
+			ConnMaxLifetime: getEnvAsDuration("READ_DB_CONN_MAX_LIFETIME", 5*time.Minute),
+			ConnMaxIdleTime: getEnvAsDuration("READ_DB_CONN_MAX_IDLE_TIME", 5*time.Minute),
 		},
 		EventDatabase: DatabaseConfig{
-			Type:       getEnv("EVENT_DB_TYPE", "postgres"),
-			Host:       getEnv("EVENT_DB_HOST", "localhost"),
-			Port:       getEnv("EVENT_DB_PORT", "5432"),
-			User:       getEnv("EVENT_DB_USER", "postgres"),
-			Password:   getEnv("EVENT_DB_PASSWORD", "password"),
-			DBName:     getEnv("EVENT_DB_NAME", "clean_ddd_event_db"),
-			Collection: getEnv("EVENT_DB_COLLECTION", "events"),
-			Charset:    getEnv("EVENT_DB_CHARSET", "utf8mb4"),
-			ParseTime:  getEnv("EVENT_DB_PARSE_TIME", "true") == "true",
-			Loc:        getEnv("EVENT_DB_LOC", "Local"),
+			Type:            getEnv("EVENT_DB_TYPE", "postgres"),
+			Host:            getEnv("EVENT_DB_HOST", "localhost"),
+			Port:            getEnv("EVENT_DB_PORT", "5432"),
+			User:            getEnv("EVENT_DB_USER", "postgres"),
+			Password:        getEnv("EVENT_DB_PASSWORD", "password"),
+			DBName:          getEnv("EVENT_DB_NAME", "clean_ddd_event_db"),
+			Collection:      getEnv("EVENT_DB_COLLECTION", "events"),
+			Charset:         getEnv("EVENT_DB_CHARSET", "utf8mb4"),
+			ParseTime:       getEnv("EVENT_DB_PARSE_TIME", "true") == "true",
+			Loc:             getEnv("EVENT_DB_LOC", "Local"),
+			MaxOpenConns:    getEnvAsInt("EVENT_DB_MAX_OPEN_CONNS", 25),
+			MaxIdleConns:    getEnvAsInt("EVENT_DB_MAX_IDLE_CONNS", 5),
+			ConnMaxLifetime: getEnvAsDuration("EVENT_DB_CONN_MAX_LIFETIME", 5*time.Minute),
+			ConnMaxIdleTime: getEnvAsDuration("EVENT_DB_CONN_MAX_IDLE_TIME", 5*time.Minute),
 		},
 		MessageBroker: MessageBrokerConfig{
 			Type:    getEnv("MESSAGE_BROKER_TYPE", "kafka"),
@@ -201,6 +219,15 @@ func getEnvAsInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if intValue, err := strconv.Atoi(value); err == nil {
 			return intValue
+		}
+	}
+	return defaultValue
+}
+
+func getEnvAsDuration(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
 		}
 	}
 	return defaultValue

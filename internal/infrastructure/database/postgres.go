@@ -39,6 +39,9 @@ func NewPostgresConnection(cfg config.DatabaseConfig) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to open PostgreSQL connection: %w", err)
 	}
 
+	// Configure connection pool
+	configureConnectionPool(db, &cfg)
+
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping PostgreSQL: %w", err)
 	}
@@ -57,6 +60,9 @@ func (p *PostgresDB) Connect() error {
 		return fmt.Errorf("failed to open PostgreSQL connection: %w", err)
 	}
 
+	// Configure connection pool
+	configureConnectionPool(db, p.config)
+
 	// Test the connection
 	if err := db.Ping(); err != nil {
 		return fmt.Errorf("failed to ping PostgreSQL: %w", err)
@@ -65,6 +71,33 @@ func (p *PostgresDB) Connect() error {
 	p.DB = db
 	log.Printf("Connected to PostgreSQL database: %s", p.config.DBName)
 	return nil
+}
+
+// configureConnectionPool configures the database connection pool settings
+func configureConnectionPool(db *sql.DB, cfg *config.DatabaseConfig) {
+	// Set maximum number of open connections
+	if cfg.MaxOpenConns > 0 {
+		db.SetMaxOpenConns(cfg.MaxOpenConns)
+		log.Printf("Set MaxOpenConns to %d", cfg.MaxOpenConns)
+	}
+
+	// Set maximum number of idle connections
+	if cfg.MaxIdleConns > 0 {
+		db.SetMaxIdleConns(cfg.MaxIdleConns)
+		log.Printf("Set MaxIdleConns to %d", cfg.MaxIdleConns)
+	}
+
+	// Set maximum lifetime of connections
+	if cfg.ConnMaxLifetime > 0 {
+		db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+		log.Printf("Set ConnMaxLifetime to %v", cfg.ConnMaxLifetime)
+	}
+
+	// Set maximum idle time of connections
+	if cfg.ConnMaxIdleTime > 0 {
+		db.SetConnMaxIdleTime(cfg.ConnMaxIdleTime)
+		log.Printf("Set ConnMaxIdleTime to %v", cfg.ConnMaxIdleTime)
+	}
 }
 
 // Close closes the database connection
