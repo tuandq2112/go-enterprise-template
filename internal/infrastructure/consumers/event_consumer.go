@@ -2,6 +2,7 @@ package consumers
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -43,7 +44,9 @@ func (c *EventConsumer) RegisterEventHandler(eventType string, handler EventHand
 
 // Start starts consuming events from Kafka
 func (c *EventConsumer) Start(ctx context.Context) error {
+	log.Printf("Starting event consumer for topics: %v", c.topics)
 	for _, topic := range c.topics {
+		log.Printf("Starting consumer for topic: %s", topic)
 		go c.consumeTopic(ctx, topic)
 	}
 	return nil
@@ -51,11 +54,13 @@ func (c *EventConsumer) Start(ctx context.Context) error {
 
 // consumeTopic consumes events from a specific topic
 func (c *EventConsumer) consumeTopic(ctx context.Context, topic string) {
+	log.Printf("Getting partitions for topic: %s", topic)
 	partitions, err := c.consumer.Partitions(topic)
 	if err != nil {
 		log.Printf("Failed to get partitions for topic %s: %v", topic, err)
 		return
 	}
+	log.Printf("Found %d partitions for topic: %s", len(partitions), topic)
 
 	for _, partition := range partitions {
 		partitionConsumer, err := c.consumer.ConsumePartition(topic, partition, sarama.OffsetNewest)
@@ -102,10 +107,22 @@ func (c *EventConsumer) handleMessage(ctx context.Context, msg *sarama.ConsumerM
 		return fmt.Errorf("invalid event type")
 	}
 
-	// Extract event data
-	data, ok := event["data"].(map[string]interface{})
+	// Extract event data (base64 encoded)
+	dataStr, ok := event["data"].(string)
 	if !ok {
 		return fmt.Errorf("invalid event data")
+	}
+
+	// Decode base64 data
+	decodedData, err := base64.StdEncoding.DecodeString(dataStr)
+	if err != nil {
+		return fmt.Errorf("failed to decode base64 data: %w", err)
+	}
+
+	// Parse decoded data as JSON
+	var data map[string]interface{}
+	if err := json.Unmarshal(decodedData, &data); err != nil {
+		return fmt.Errorf("failed to unmarshal decoded data: %w", err)
 	}
 
 	// Find and call appropriate handler

@@ -2,6 +2,7 @@ package errors
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 )
 
@@ -49,6 +50,8 @@ type AppError struct {
 	Cause      error                  `json:"-"`
 	HTTPStatus int                    `json:"-"`
 	Locale     string                 `json:"-"`
+	Stack      []string               `json:"stack,omitempty"`
+	Context    map[string]interface{} `json:"context,omitempty"`
 }
 
 // Error implements the error interface
@@ -87,41 +90,60 @@ func (e *AppError) WithLocale(locale string) *AppError {
 	return e
 }
 
-// New creates a new AppError
+// WithContext adds context information to the error
+func (e *AppError) WithContext(key string, value interface{}) *AppError {
+	if e.Context == nil {
+		e.Context = make(map[string]interface{})
+	}
+	e.Context[key] = value
+	return e
+}
+
+// WithStack adds stack trace to the error
+func (e *AppError) WithStack() *AppError {
+	e.Stack = getStackTrace()
+	return e
+}
+
+// New creates a new AppError with stack trace
 func New(code ErrorCode, message string) *AppError {
 	return &AppError{
 		Code:       code,
 		Message:    message,
 		HTTPStatus: getHTTPStatus(code),
+		Stack:      getStackTrace(),
 	}
 }
 
-// Newf creates a new AppError with formatted message
+// Newf creates a new AppError with formatted message and stack trace
 func Newf(code ErrorCode, format string, args ...interface{}) *AppError {
 	return &AppError{
 		Code:       code,
 		Message:    fmt.Sprintf(format, args...),
 		HTTPStatus: getHTTPStatus(code),
+		Stack:      getStackTrace(),
 	}
 }
 
-// Wrap wraps an existing error with additional context
+// Wrap wraps an existing error with additional context and stack trace
 func Wrap(err error, code ErrorCode, message string) *AppError {
 	return &AppError{
 		Code:       code,
 		Message:    message,
 		Cause:      err,
 		HTTPStatus: getHTTPStatus(code),
+		Stack:      getStackTrace(),
 	}
 }
 
-// Wrapf wraps an existing error with formatted message
+// Wrapf wraps an existing error with formatted message and stack trace
 func Wrapf(err error, code ErrorCode, format string, args ...interface{}) *AppError {
 	return &AppError{
 		Code:       code,
 		Message:    fmt.Sprintf(format, args...),
 		Cause:      err,
 		HTTPStatus: getHTTPStatus(code),
+		Stack:      getStackTrace(),
 	}
 }
 
@@ -133,19 +155,52 @@ func IsAppError(err error) bool {
 
 // AsAppError converts an error to AppError if possible
 func AsAppError(err error) (*AppError, bool) {
-	var appErr *AppError
-	if err != nil && strings.Contains(err.Error(), ": ") {
-		// Try to parse as AppError
+	if err == nil {
+		return nil, false
+	}
+
+	// If it's already an AppError, return it
+	if appErr, ok := err.(*AppError); ok {
+		return appErr, true
+	}
+
+	// Try to parse error message as AppError (for backward compatibility)
+	if strings.Contains(err.Error(), ": ") {
 		parts := strings.SplitN(err.Error(), ": ", 2)
 		if len(parts) == 2 {
-			appErr = &AppError{
+			appErr := &AppError{
 				Code:    ErrorCode(parts[0]),
 				Message: parts[1],
+				Cause:   err,
 			}
 			return appErr, true
 		}
 	}
-	return nil, false
+
+	// Create a generic AppError wrapper
+	appErr := &AppError{
+		Code:    ErrInternalServer,
+		Message: err.Error(),
+		Cause:   err,
+		Stack:   getStackTrace(),
+	}
+	return appErr, true
+}
+
+// getStackTrace returns the current stack trace
+func getStackTrace() []string {
+	var stack []string
+	for i := 1; i < 10; i++ { // Skip first few frames
+		pc, file, line, ok := runtime.Caller(i)
+		if !ok {
+			break
+		}
+		fn := runtime.FuncForPC(pc)
+		if fn != nil {
+			stack = append(stack, fmt.Sprintf("%s:%d %s", file, line, fn.Name()))
+		}
+	}
+	return stack
 }
 
 // getHTTPStatus returns the appropriate HTTP status code for an error code

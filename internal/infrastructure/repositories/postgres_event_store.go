@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -46,9 +47,31 @@ func (s *PostgresEventStore) SaveEvent(ctx context.Context, aggregateID string, 
 		return fmt.Errorf("database connection not available")
 	}
 
-	// For now, we'll return an error indicating the implementation is not available
-	// In a real implementation, you'd have type assertions to handle different database types
-	return fmt.Errorf("event store implementation not available - use PostgreSQL")
+	// Type assertion to get *sql.DB
+	sqlDB, ok := dbConn.(*sql.DB)
+	if !ok {
+		return fmt.Errorf("database connection is not *sql.DB")
+	}
+
+	// Insert event into events table
+	query := `
+		INSERT INTO events (aggregate_id, aggregate_type, event_type, event_data, version, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`
+
+	_, err := sqlDB.ExecContext(ctx, query,
+		aggregateID,
+		"user", // aggregate type
+		event.Type,
+		event.Data,
+		event.Version,
+		event.Timestamp,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to insert event: %w", err)
+	}
+
+	return nil
 }
 
 // GetEvents retrieves all events for an aggregate

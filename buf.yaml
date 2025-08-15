@@ -2,6 +2,8 @@ version: v1
 name: buf.build/example/go-clean-ddd-es-template
 deps:
   - buf.build/googleapis/googleapis
+  - buf.build/grpc-ecosystem/grpc-gateway
+  - buf.build/grpc-ecosystem/openapiv2
 lint:
   use:
     - DEFAULT

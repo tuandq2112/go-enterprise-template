@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"runtime"
+	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -30,133 +31,130 @@ type Metrics struct {
 	EventsPublished *prometheus.CounterVec
 
 	// System metrics
-	GoRoutines  *prometheus.GaugeVec
 	MemoryAlloc *prometheus.GaugeVec
 	MemoryHeap  *prometheus.GaugeVec
 }
 
-// NewMetrics creates and registers all metrics
+var (
+	metricsInstance *Metrics
+	metricsOnce     sync.Once
+)
+
+// NewMetrics creates and registers all metrics (singleton pattern)
 func NewMetrics() *Metrics {
-	m := &Metrics{
-		// HTTP metrics
-		HTTPRequestsTotal: promauto.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "http_requests_total",
-				Help: "Total number of HTTP requests",
-			},
-			[]string{"method", "endpoint", "status"},
-		),
-		HTTPRequestDuration: promauto.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Name:    "http_request_duration_seconds",
-				Help:    "HTTP request duration in seconds",
-				Buckets: prometheus.DefBuckets,
-			},
-			[]string{"method", "endpoint"},
-		),
-		HTTPRequestsInFlight: promauto.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "http_requests_in_flight",
-				Help: "Current number of HTTP requests being processed",
-			},
-			[]string{"method", "endpoint"},
-		),
+	metricsOnce.Do(func() {
+		metricsInstance = &Metrics{
+			// HTTP metrics
+			HTTPRequestsTotal: promauto.NewCounterVec(
+				prometheus.CounterOpts{
+					Name: "http_requests_total",
+					Help: "Total number of HTTP requests",
+				},
+				[]string{"method", "endpoint", "status"},
+			),
+			HTTPRequestDuration: promauto.NewHistogramVec(
+				prometheus.HistogramOpts{
+					Name:    "http_request_duration_seconds",
+					Help:    "HTTP request duration in seconds",
+					Buckets: prometheus.DefBuckets,
+				},
+				[]string{"method", "endpoint"},
+			),
+			HTTPRequestsInFlight: promauto.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "http_requests_in_flight",
+					Help: "Current number of HTTP requests being processed",
+				},
+				[]string{"method", "endpoint"},
+			),
 
-		// Database metrics
-		DBConnectionsActive: promauto.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "db_connections_active",
-				Help: "Number of active database connections",
-			},
-			[]string{"database"},
-		),
-		DBQueryDuration: promauto.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Name:    "db_query_duration_seconds",
-				Help:    "Database query duration in seconds",
-				Buckets: prometheus.DefBuckets,
-			},
-			[]string{"operation", "table"},
-		),
-		DBQueriesTotal: promauto.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "db_queries_total",
-				Help: "Total number of database queries",
-			},
-			[]string{"operation", "table", "status"},
-		),
+			// Database metrics
+			DBConnectionsActive: promauto.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "db_connections_active",
+					Help: "Number of active database connections",
+				},
+				[]string{"database"},
+			),
+			DBQueryDuration: promauto.NewHistogramVec(
+				prometheus.HistogramOpts{
+					Name:    "db_query_duration_seconds",
+					Help:    "Database query duration in seconds",
+					Buckets: prometheus.DefBuckets,
+				},
+				[]string{"operation", "table"},
+			),
+			DBQueriesTotal: promauto.NewCounterVec(
+				prometheus.CounterOpts{
+					Name: "db_queries_total",
+					Help: "Total number of database queries",
+				},
+				[]string{"operation", "table", "status"},
+			),
 
-		// Kafka metrics
-		KafkaEventsPublished: promauto.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "kafka_events_published_total",
-				Help: "Total number of events published to Kafka",
-			},
-			[]string{"topic", "event_type"},
-		),
-		KafkaEventsFailed: promauto.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "kafka_events_failed_total",
-				Help: "Total number of failed events",
-			},
-			[]string{"topic", "event_type", "error"},
-		),
-		KafkaProducerErrors: promauto.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "kafka_producer_errors_total",
-				Help: "Total number of Kafka producer errors",
-			},
-			[]string{"error"},
-		),
+			// Kafka metrics
+			KafkaEventsPublished: promauto.NewCounterVec(
+				prometheus.CounterOpts{
+					Name: "kafka_events_published_total",
+					Help: "Total number of events published to Kafka",
+				},
+				[]string{"topic", "event_type"},
+			),
+			KafkaEventsFailed: promauto.NewCounterVec(
+				prometheus.CounterOpts{
+					Name: "kafka_events_failed_total",
+					Help: "Total number of failed events",
+				},
+				[]string{"topic", "event_type", "error"},
+			),
+			KafkaProducerErrors: promauto.NewCounterVec(
+				prometheus.CounterOpts{
+					Name: "kafka_producer_errors_total",
+					Help: "Total number of Kafka producer errors",
+				},
+				[]string{"error"},
+			),
 
-		// Business metrics
-		UsersTotal: promauto.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "users_total",
-				Help: "Total number of users in the system",
-			},
-			[]string{},
-		),
-		EventsStored: promauto.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "events_stored_total",
-				Help: "Total number of events stored in event store",
-			},
-			[]string{"event_type", "aggregate_type"},
-		),
-		EventsPublished: promauto.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "events_published_total",
-				Help: "Total number of events published",
-			},
-			[]string{"event_type", "aggregate_type"},
-		),
+			// Business metrics
+			UsersTotal: promauto.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "users_total",
+					Help: "Total number of users in the system",
+				},
+				[]string{},
+			),
+			EventsStored: promauto.NewCounterVec(
+				prometheus.CounterOpts{
+					Name: "events_stored_total",
+					Help: "Total number of events stored in event store",
+				},
+				[]string{"event_type", "aggregate_type"},
+			),
+			EventsPublished: promauto.NewCounterVec(
+				prometheus.CounterOpts{
+					Name: "events_published_total",
+					Help: "Total number of events published",
+				},
+				[]string{"event_type", "aggregate_type"},
+			),
 
-		// System metrics
-		GoRoutines: promauto.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "go_goroutines",
-				Help: "Number of goroutines",
-			},
-			[]string{},
-		),
-		MemoryAlloc: promauto.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "go_memory_alloc_bytes",
-				Help: "Memory allocated in bytes",
-			},
-			[]string{},
-		),
-		MemoryHeap: promauto.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "go_memory_heap_bytes",
-				Help: "Heap memory in bytes",
-			},
-			[]string{},
-		),
-	}
-
-	return m
+			MemoryAlloc: promauto.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "go_memory_alloc_bytes",
+					Help: "Memory allocated in bytes",
+				},
+				[]string{},
+			),
+			MemoryHeap: promauto.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "go_memory_heap_bytes",
+					Help: "Heap memory in bytes",
+				},
+				[]string{},
+			),
+		}
+	})
+	return metricsInstance
 }
 
 // RecordHTTPRequest records HTTP request metrics
@@ -216,7 +214,6 @@ func (m *Metrics) UpdateSystemMetrics() {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
-	m.GoRoutines.WithLabelValues().Set(float64(runtime.NumGoroutine()))
 	m.MemoryAlloc.WithLabelValues().Set(float64(memStats.Alloc))
 	m.MemoryHeap.WithLabelValues().Set(float64(memStats.HeapAlloc))
 }

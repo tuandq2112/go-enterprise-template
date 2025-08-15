@@ -6,11 +6,12 @@ import (
 
 // User represents a user entity with value objects
 type User struct {
-	ID        UserID    `json:"id"`
-	Email     Email     `json:"email"`
-	Name      Name      `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID           UserID    `json:"id"`
+	Email        Email     `json:"email"`
+	Name         Name      `json:"name"`
+	PasswordHash string    `json:"-"` // Never expose password hash in JSON
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // NewUser creates a new User entity with validation
@@ -82,6 +83,17 @@ func (u *User) Equals(other *User) bool {
 	return u.ID.Equals(other.ID) &&
 		u.Email.Equals(other.Email) &&
 		u.Name.Equals(other.Name)
+}
+
+// SetPasswordHash sets the password hash
+func (u *User) SetPasswordHash(hash string) {
+	u.PasswordHash = hash
+	u.UpdatedAt = time.Now()
+}
+
+// GetPasswordHash returns the password hash
+func (u *User) GetPasswordHash() string {
+	return u.PasswordHash
 }
 
 // IsValid checks if the user entity is valid

@@ -1,0 +1,117 @@
+syntax = "proto3";
+
+package auth;
+
+option go_package = "go-clean-ddd-es-template/proto/auth";
+
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+
+// Auth service definition
+service AuthService {
+  // Register a new user
+  rpc Register(RegisterRequest) returns (RegisterResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/register"
+      body: "*"
+    };
+  }
+  
+  // Login user
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/login"
+      body: "*"
+    };
+  }
+  
+  // Validate JWT token
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/validate"
+      body: "*"
+    };
+  }
+  
+  // Refresh JWT token
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/refresh"
+      body: "*"
+    };
+  }
+  
+  // Change password
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/change-password"
+      body: "*"
+    };
+  }
+}
+
+// Register request
+message RegisterRequest {
+  string email = 1;
+  string name = 2;
+  string password = 3;
+}
+
+// Register response
+message RegisterResponse {
+  string user_id = 1;
+  string email = 2;
+  string name = 3;
+  string token = 4;
+}
+
+// Login request
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+// Login response
+message LoginResponse {
+  string user_id = 1;
+  string email = 2;
+  string name = 3;
+  repeated string roles = 4;
+  string token = 5;
+}
+
+// Validate token request
+message ValidateTokenRequest {
+  string token = 1;
+}
+
+// Validate token response
+message ValidateTokenResponse {
+  string user_id = 1;
+  string email = 2;
+  repeated string roles = 3;
+  google.protobuf.Timestamp expires_at = 4;
+}
+
+// Refresh token request
+message RefreshTokenRequest {
+  string token = 1;
+}
+
+// Refresh token response
+message RefreshTokenResponse {
+  string token = 1;
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+// Change password request
+message ChangePasswordRequest {
+  string current_password = 1;
+  string new_password = 2;
+}
+
+// Change password response
+message ChangePasswordResponse {
+  bool success = 1;
+  string message = 2;
+} 

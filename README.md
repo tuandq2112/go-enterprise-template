@@ -1,288 +1,306 @@
 # Go Clean DDD ES Template
 
-A Go project template implementing Clean Architecture, Domain-Driven Design (DDD), and Event Sourcing principles with Kafka integration.
+A Go project template implementing **Clean Architecture**, **Domain-Driven Design (DDD)**, **Event Sourcing**, and **CQRS** principles.
 
-## Project Structure
+## 🚀 Features
+
+- **Clean Architecture**: Proper separation of concerns
+- **Domain-Driven Design**: Rich domain models
+- **Event Sourcing**: All changes captured as events
+- **CQRS**: Separate read and write models
+- **gRPC & REST**: Dual API support
+- **Authentication**: JWT with RSA signing
+- **Database Migrations**: Multi-database support
+- **Structured Logging**: Zap logger
+- **Input Validation**: Security middleware
+- **Monitoring**: Prometheus, Grafana integration
+
+## 📁 Project Structure
 
 ```
 go-clean-ddd-es-template/
-├── main.go                                    # Application entry point
-├── go.mod                                     # Go module file
-├── README.md                                  # This file
-├── Makefile                                   # Development tasks
-├── .gitignore                                 # Git ignore rules
-└── internal/                                  # Private application code
-    ├── domain/                               # Domain layer (business logic)
-    │   ├── entities/                         # Domain entities (User)
-    │   ├── repositories/                     # Repository interfaces
-    │   ├── events/                           # Domain events
-    │   └── services/                         # Domain services
-    ├── application/                          # Application layer (use cases)
-    │   ├── usecases/                         # Use cases (UserUseCase)
-    │   └── interfaces/                       # Application interfaces
-    └── infrastructure/                       # Infrastructure layer
-        ├── config/                           # Configuration management
-        ├── http/                             # HTTP server and handlers
-        │   ├── server/                       # HTTP server setup
-        │   └── handlers/                     # HTTP handlers
-        ├── kafka/                            # Kafka integration
-        ├── database/                         # Database connections
-        └── repositories/                     # Repository implementations
+├── cmd/                    # CLI commands
+├── internal/               # Application code
+│   ├── domain/            # Domain layer
+│   ├── application/       # Application layer
+│   └── infrastructure/    # Infrastructure layer
+├── pkg/                   # Reusable packages
+├── proto/                 # Protocol Buffers
+├── migrations/            # Database migrations
+├── scripts/               # Utility scripts
+└── monitoring/            # Monitoring config
 ```
 
-## Architecture
+## 🛠️ Prerequisites
 
-This project follows Clean Architecture principles with the following layers:
+- **Go 1.21+**
+- **Docker & Docker Compose**
+- **Buf** (for protobuf generation)
 
-1. **Domain Layer**: Contains business entities, repository interfaces, domain services, and domain events
-2. **Application Layer**: Contains use cases and application services
-3. **Infrastructure Layer**: Contains external concerns like HTTP, database, Kafka, and configuration
+## 🚀 Step-by-Step Setup
 
-## Features
+### Step 1: Clone and Setup Project
 
-- **Clean Architecture**: Proper separation of concerns
-- **Domain-Driven Design**: Rich domain models with business logic
-- **Event Sourcing**: All domain changes are captured as events
-- **Kafka Integration**: Event streaming with Apache Kafka
-- **RESTful API**: Complete CRUD operations for users
-- **In-Memory Storage**: For development and testing
-- **UUID Generation**: Unique identifiers for entities
-
-## Getting Started
-
-### Prerequisites
-
-- Go 1.21 or higher
-- Apache Kafka (optional, for event streaming)
-
-### Installation
-
-1. Clone the repository:
 ```bash
+# 1. Clone the repository
 git clone <repository-url>
 cd go-clean-ddd-es-template
+
+# 2. Copy environment file
+cp env.example .env
+
+# 3. Install Go dependencies
+make deps
 ```
 
-2. Install dependencies:
+### Step 2: Start Database
+
 ```bash
-go mod tidy
+# 4. Start PostgreSQL database
+make all-up
+
+# Or if you only want PostgreSQL:
+docker-compose up -d postgres
+
+# 5. Verify database is running
+docker ps
+# You should see postgres container running
 ```
 
-3. Run the application:
+### Step 3: Setup Database Schema
+
 ```bash
-go run main.go
+# 6. Build the application first
+make build
+
+# 7. Run database migrations
+make migrate-up
+
+# Expected output:
+# Running migrations...
+# Connected to PostgreSQL database: clean_ddd_write_db
+# Connected to PostgreSQL database: clean_ddd_event_db
+# Running write database migrations...
+# Write database migrations completed
+# Running event database migrations...
+# Event database migrations completed
 ```
 
-The server will start on port 8080 by default.
+### Step 4: Generate Authentication Keys
 
-### Environment Variables
-
-You can configure the application using the following environment variables:
-
-- `PORT`: Server port (default: 8080)
-- `DB_HOST`: Database host (default: localhost)
-- `DB_PORT`: Database port (default: 5432)
-- `DB_USER`: Database user (default: postgres)
-- `DB_PASSWORD`: Database password (default: password)
-- `DB_NAME`: Database name (default: clean_ddd_db)
-- `KAFKA_BROKERS`: Kafka broker addresses (default: localhost:9092)
-
-## API Endpoints
-
-### Health Check
-- `GET /health` - Health check endpoint
-
-### API Root
-- `GET /api/v1/` - API root endpoint
-
-### User Management
-- `POST /api/v1/users` - Create a new user
-- `GET /api/v1/users` - List all users
-- `GET /api/v1/users/{id}` - Get user by ID
-- `PUT /api/v1/users/{id}` - Update user
-- `DELETE /api/v1/users/{id}` - Delete user
-
-### Example API Usage
-
-#### Create User
 ```bash
+# 8. Generate RSA keys for JWT authentication
+make generate-keys
+
+# Expected output:
+# Generating RSA keys...
+# RSA key pair generated successfully!
+# Private key: keys/private.pem
+# Public key: keys/public.pem
+```
+
+### Step 5: Generate Protocol Buffer Code
+
+```bash
+# 9. Generate gRPC and protobuf code
+make proto
+
+# Expected output:
+# Generating protobuf code...
+# buf generate
+# Protobuf code generated successfully!
+```
+
+### Step 6: Build and Run Application
+
+```bash
+# 10. Build the application
+make build
+
+# 11. Run the gRPC server with HTTP gateway
+make run
+
+# Expected output:
+# Running gRPC server...
+# Starting gRPC server on port 9090 and HTTP gateway on port 8080
+```
+
+### Step 7: Verify Everything is Working
+
+```bash
+# 12. Check if server is running
+curl http://localhost:8080/docs
+
+# 13. Test API documentation
+open http://localhost:8080/docs
+# or visit in browser: http://localhost:8080/docs
+```
+
+## 📚 API Testing
+
+### Test User Management
+
+```bash
+# Create a new user
 curl -X POST http://localhost:8080/api/v1/users \
   -H "Content-Type: application/json" \
-  -d '{"email": "john@example.com", "name": "John Doe"}'
+  -d '{
+    "email": "john@example.com",
+    "name": "John Doe"
+  }'
+
+# Expected response:
+# {
+#   "id": "uuid-here",
+#   "email": "john@example.com",
+#   "name": "John Doe",
+#   "created_at": "2025-08-15T..."
+# }
+
+# List all users
+curl http://localhost:8080/api/v1/users
+
+# Get user by ID (replace {id} with actual user ID)
+curl http://localhost:8080/api/v1/users/{id}
 ```
 
-#### Get User
-```bash
-curl http://localhost:8080/api/v1/users/{user-id}
-```
+### Test Authentication
 
-#### Update User
 ```bash
-curl -X PUT http://localhost:8080/api/v1/users/{user-id} \
+# Register a new user
+curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"name": "John Smith", "email": "john.smith@example.com"}'
+  -d '{
+    "email": "jane@example.com",
+    "name": "Jane Doe",
+    "password": "password123"
+  }'
+
+# Login
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "jane@example.com",
+    "password": "password123"
+  }'
+
+# Expected response:
+# {
+#   "token": "jwt-token-here",
+#   "user": {
+#     "id": "uuid-here",
+#     "email": "jane@example.com",
+#     "name": "Jane Doe"
+#   }
+# }
 ```
 
-#### Delete User
-```bash
-curl -X DELETE http://localhost:8080/api/v1/users/{user-id}
-```
-
-## Event Sourcing
-
-The application implements Event Sourcing where all domain changes are captured as events:
-
-- `user.created` - When a user is created
-- `user.updated` - When a user is updated
-- `user.deleted` - When a user is deleted
-
-Events are stored in an event store and can be published to Kafka for event streaming.
-
-## Kafka Integration
-
-The application can publish domain events to Kafka topics:
-
-- Topic: `user-events` - Contains all user-related events
-- Event Types: `user.created`, `user.updated`, `user.deleted`
-
-To enable Kafka:
-1. Start a Kafka broker
-2. Set the `KAFKA_BROKERS` environment variable
-3. The application will automatically publish events to Kafka
-
-## Protocol Buffers and gRPC
-
-The application uses Protocol Buffers for API definition and supports both gRPC and REST APIs:
-
-### Protocol Buffers
-- Service definitions in `proto/user/user.proto`
-- Code generation using Buf
-- HTTP annotations for gRPC Gateway
-
-### gRPC Server
-- Runs on port 9090
-- Provides native gRPC API
-- Can be tested with grpcurl
-
-### gRPC Gateway
-- Runs on port 8080 (configurable)
-- Provides REST API from gRPC service
-- Automatic code generation
-
-### Code Generation
-```bash
-# Generate protobuf code
-make proto
-# or
-buf generate
-```
-
-### Testing gRPC
-```bash
-# Test gRPC endpoints
-make test-grpc
-# or
-./test_grpc.sh
-```
-
-## Monitoring and Observability
-
-The application includes comprehensive monitoring and observability features:
-
-### Prometheus Metrics
-- HTTP request metrics (count, duration, status codes)
-- Database connection and query metrics
-- Kafka event publishing metrics
-- System metrics (goroutines, memory usage)
-- Business metrics (user count, events)
-
-### Health Checks
-- Database connectivity
-- System health
-- Kafka connectivity
-- Custom health checks
-
-### Grafana Dashboards
-- Pre-configured dashboards for application metrics
-- Real-time monitoring
-- Alerting capabilities
-
-### Monitoring Setup
-```bash
-# Start monitoring services
-make monitoring-up
-
-# Start HTTP server with monitoring
-make run-http-new
-
-# Test monitoring setup
-./test_monitoring.sh
-```
-
-### Monitoring URLs
-- **Prometheus**: http://localhost:9090
-- **Grafana**: http://localhost:3000 (admin/admin)
-- **Health Check**: http://localhost:8080/health
-- **Metrics**: http://localhost:8080/metrics
-
-## Development
-
-### Adding New Features
-
-1. Define domain entities in `internal/domain/entities/`
-2. Create domain events in `internal/domain/events/`
-3. Create repository interfaces in `internal/domain/repositories/`
-4. Implement use cases in `internal/application/usecases/`
-5. Add HTTP handlers in `internal/infrastructure/http/handlers/`
-6. Update routes in `internal/infrastructure/http/server/server.go`
-
-### Testing
+## 🔧 Development Commands
 
 ```bash
-go test ./...
-```
+# Build and run
+make build          # Build application
+make run            # Run gRPC server
 
-### Building
+# Testing
+make test           # Run all tests
 
-```bash
-make build
-# or
-go build -o bin/app main.go
-```
+# Database operations
+make migrate-up     # Run migrations
+make migrate-down   # Rollback migrations
 
-### Running
+# Code generation
+make proto          # Generate protobuf code
 
-The application now supports two modes using Cobra commands:
+# Docker operations
+make all-up         # Start all services
+make all-down       # Stop all services
 
-#### HTTP Server (gRPC Gateway)
-```bash
-make run
-# or
-make run-http
-# or
-./bin/app http
-```
-
-#### gRPC Server
-```bash
-make run-grpc
-# or
-./bin/app grpc
-```
-
-#### Available Commands
-```bash
 # Show all available commands
-./bin/app --help
-
-# Show HTTP command help
-./bin/app http --help
-
-# Show gRPC command help
-./bin/app grpc --help
+make help
 ```
 
-## Contributing
+## ⚙️ Configuration
+
+Copy `env.example` to `.env` and configure:
+
+```bash
+# Server ports
+PORT=8080           # HTTP gateway port
+GRPC_PORT=9091      # gRPC server port
+
+# Database configuration
+DB_TYPE=postgres
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=password
+DB_NAME=clean_ddd_write_db
+
+# Logging
+LOG_LEVEL=debug     # debug, info, warn, error
+LOG_FORMAT=json     # json or text
+
+# Authentication
+AUTH_PRIVATE_KEY_PATH=keys/private.pem
+AUTH_PUBLIC_KEY_PATH=keys/public.pem
+AUTH_TOKEN_EXPIRY=24h
+```
+
+## 🏗️ Architecture
+
+### Clean Architecture Layers
+
+```
+┌─────────────────────────────────┐
+│        Infrastructure          │
+│  gRPC | Database | Kafka       │
+└─────────────────────────────────┘
+              │
+┌─────────────────────────────────┐
+│         Application            │
+│  Commands | Queries | Services │
+└─────────────────────────────────┘
+              │
+┌─────────────────────────────────┐
+│           Domain               │
+│  Entities | Events | Repos     │
+└─────────────────────────────────┘
+```
+
+### Event Sourcing Flow
+
+```
+Command → Domain Entity → Event → Event Store → Read Model
+                ↓
+            Message Broker
+```
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+make test
+
+# Run specific test packages
+go test ./internal/domain/...
+go test ./internal/application/...
+go test ./internal/infrastructure/...
+```
+
+## 🚀 Deployment
+
+### Docker
+
+```bash
+# Build image
+docker build -t go-clean-ddd-es-template .
+
+# Run with compose
+docker-compose up -d
+```
+
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -290,6 +308,6 @@ make run-grpc
 4. Add tests
 5. Submit a pull request
 
-## License
+## 📄 License
 
-This project is licensed under the MIT License. 
+MIT License 

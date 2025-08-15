@@ -46,13 +46,7 @@ func (h *ErrorHandler) HandleError(err error, locale string) *ErrorResponse {
 		translatedErr := h.translator.TranslateError(appErr, locale)
 
 		// Log the error
-		h.logger.Error("Application error occurred", map[string]interface{}{
-			"error_code":    appErr.Code,
-			"error_message": appErr.Message,
-			"locale":        locale,
-			"http_status":   appErr.HTTPStatus,
-			"details":       appErr.Details,
-		})
+		h.logger.Error("Application error occurred: %s", appErr.Message)
 
 		return &ErrorResponse{
 			Code:    string(translatedErr.Code),
@@ -65,11 +59,7 @@ func (h *ErrorHandler) HandleError(err error, locale string) *ErrorResponse {
 	if appErr, ok := errors.AsAppError(err); ok {
 		translatedErr := h.translator.TranslateError(appErr, locale)
 
-		h.logger.Error("Converted error to AppError", map[string]interface{}{
-			"error_code":    appErr.Code,
-			"error_message": appErr.Message,
-			"locale":        locale,
-		})
+		h.logger.Error("Converted error to AppError: %s", appErr.Message)
 
 		return &ErrorResponse{
 			Code:    string(translatedErr.Code),
@@ -79,10 +69,7 @@ func (h *ErrorHandler) HandleError(err error, locale string) *ErrorResponse {
 	}
 
 	// Handle unknown errors
-	h.logger.Error("Unknown error occurred", map[string]interface{}{
-		"error":  err.Error(),
-		"locale": locale,
-	})
+	h.logger.Error("Unknown error occurred: %s", err.Error())
 
 	return &ErrorResponse{
 		Code:    string(errors.ErrInternalServer),
@@ -142,10 +129,7 @@ func (h *ErrorHandler) handleGRPCError(err error, locale string) error {
 	}
 
 	// Handle unknown errors
-	h.logger.Error("Unknown gRPC error", map[string]interface{}{
-		"error":  err.Error(),
-		"locale": locale,
-	})
+	h.logger.Error("Unknown gRPC error: %s", err.Error())
 
 	internalErr := h.translator.Translate(string(errors.ErrInternalServer), locale)
 	return status.Error(codes.Internal, internalErr)

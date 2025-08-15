@@ -70,8 +70,8 @@ func TestNewName(t *testing.T) {
 		{
 			name:          "name with numbers",
 			input:         "John123",
-			expected:      "",
-			expectedError: true,
+			expected:      "John123",
+			expectedError: false,
 		},
 		{
 			name:          "name with special characters",

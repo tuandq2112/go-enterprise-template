@@ -33,4 +33,7 @@ func Execute() {
 func init() {
 	// Global persistent flags
 	rootCmd.PersistentFlags().StringVarP(&port, "port", "p", "8080", "Port to run the server on")
+
+	// Add commands
+	rootCmd.AddCommand(grpcCmd)
 }

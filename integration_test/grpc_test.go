@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	grpcServerAddr = "localhost:9090"
+	grpcServerAddr = "localhost:9091"
 )
 
 func TestGRPCCreateUser(t *testing.T) {

@@ -21,11 +21,12 @@ type Tracer struct {
 }
 
 // NewTracer creates a new tracer instance
-func NewTracer(serviceName, serviceVersion string) (*Tracer, error) {
+func NewTracer(serviceName, serviceVersion, endpoint string) (*Tracer, error) {
 	// Create OTLP exporter
 	exporter, err := otlptracehttp.New(
 		context.Background(),
-		otlptracehttp.WithEndpoint("http://localhost:4318/v1/traces"),
+		otlptracehttp.WithEndpoint(endpoint),
+		otlptracehttp.WithURLPath("/v1/traces"),
 		otlptracehttp.WithInsecure(),
 	)
 	if err != nil {

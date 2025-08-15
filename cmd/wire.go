@@ -14,10 +14,12 @@ import (
 	"go-clean-ddd-es-template/internal/infrastructure/grpc"
 	"go-clean-ddd-es-template/internal/infrastructure/messagebroker"
 	infraRepos "go-clean-ddd-es-template/internal/infrastructure/repositories"
+	"go-clean-ddd-es-template/pkg/auth"
 	"go-clean-ddd-es-template/pkg/i18n"
 	"go-clean-ddd-es-template/pkg/logger"
 	"go-clean-ddd-es-template/pkg/middleware"
 	"go-clean-ddd-es-template/pkg/tracing"
+	"time"
 
 	"github.com/google/wire"
 )
@@ -39,12 +41,12 @@ func provideTracer(cfg *config.Config) (*tracing.Tracer, error) {
 	if !cfg.Tracing.Enabled {
 		return nil, nil
 	}
-	return tracing.NewTracer(cfg.Tracing.ServiceName, "1.0.0")
+	return tracing.NewTracer(cfg.Tracing.ServiceName, "1.0.0", cfg.Tracing.Endpoint)
 }
 
 // provideLogger provides logger service
 func provideLogger(cfg *config.Config) (logger.Logger, error) {
-	return logger.NewLogger(cfg.Log.Level, cfg.Log.Format)
+	return logger.NewLoggerFromConfig(cfg.Log.Level, cfg.Log.Format)
 }
 
 // provideTranslator provides i18n translator
@@ -128,7 +130,7 @@ func provideEventConsumer(
 	cfg *config.Config,
 ) *consumers.EventConsumer {
 	consumer := broker.GetConsumer()
-	topics := []string{"user-events", "product-events"}
+	topics := []string{"user.created", "user.updated", "user.deleted", "product.created", "product.updated", "product.deleted"}
 
 	eventConsumer := consumers.NewEventConsumer(consumer, cfg.MessageBroker.GroupID, topics)
 
@@ -153,6 +155,13 @@ func provideUserWriteRepository(factory *infraRepos.RepositoryFactory) (reposito
 // provideUserReadRepository provides user read repository
 func provideUserReadRepository(factory *infraRepos.RepositoryFactory) (repositories.UserReadRepository, error) {
 	return factory.CreateUserReadRepository()
+}
+
+// provideUserRepository provides user repository (combines write and read)
+func provideUserRepository(writeRepo repositories.UserWriteRepository, readRepo repositories.UserReadRepository) repositories.UserRepository {
+	// For now, we'll use writeRepo as the main repository since it has all the methods
+	// In a real implementation, you might want to create a composite repository
+	return writeRepo.(repositories.UserRepository)
 }
 
 // provideEventStore provides event store
@@ -228,13 +237,53 @@ func provideUserService(
 	)
 }
 
+// provideJWTService provides JWT service
+func provideJWTService(cfg *config.Config) (*auth.JWTService, error) {
+	return auth.NewJWTService(cfg.Auth.PrivateKeyPath, cfg.Auth.PublicKeyPath, time.Duration(cfg.Auth.TokenExpiry)*time.Hour)
+}
+
+// providePasswordService provides password service
+func providePasswordService() *auth.PasswordService {
+	return auth.NewPasswordService(12) // bcrypt cost of 12
+}
+
+// provideAuthRegisterCommandHandler provides auth register command handler
+func provideAuthRegisterCommandHandler(
+	userRepo repositories.UserRepository,
+	eventStore repositories.EventStore,
+	eventPublisher repositories.EventPublisher,
+	passwordService *auth.PasswordService,
+	jwtService *auth.JWTService,
+) *commands.AuthRegisterCommandHandler {
+	return commands.NewAuthRegisterCommandHandler(userRepo, eventStore, eventPublisher, passwordService, jwtService)
+}
+
+// provideAuthLoginCommandHandler provides auth login command handler
+func provideAuthLoginCommandHandler(
+	userRepo repositories.UserRepository,
+	passwordService *auth.PasswordService,
+	jwtService *auth.JWTService,
+) *commands.AuthLoginCommandHandler {
+	return commands.NewAuthLoginCommandHandler(userRepo, passwordService, jwtService)
+}
+
+// provideAuthService provides auth service
+func provideAuthService(
+	registerHandler *commands.AuthRegisterCommandHandler,
+	loginHandler *commands.AuthLoginCommandHandler,
+	jwtService *auth.JWTService,
+) *services.AuthService {
+	return services.NewAuthService(registerHandler, loginHandler, jwtService)
+}
+
 // provideGRPCServer provides gRPC server
 func provideGRPCServer(
 	userService *services.UserService,
+	authService *services.AuthService,
 	tracer *tracing.Tracer,
-	errorHandler *middleware.ErrorHandler,
+	logger logger.Logger,
 ) *grpc.GRPCServer {
-	return grpc.NewGRPCServer(userService, tracer, errorHandler)
+	return grpc.NewGRPCServer(userService, authService, tracer, logger)
 }
 
 // InitializeGRPCServer initializes gRPC server with all dependencies
@@ -243,8 +292,6 @@ func InitializeGRPCServer() (*grpc.GRPCServer, error) {
 		provideConfig,
 		provideTracer,
 		provideLogger,
-		provideTranslator,
-		provideErrorHandler,
 		provideDatabaseFactory,
 		provideWriteDatabase,
 		provideReadDatabase,
@@ -254,6 +301,7 @@ func InitializeGRPCServer() (*grpc.GRPCServer, error) {
 		provideRepositoryFactory,
 		provideUserWriteRepository,
 		provideUserReadRepository,
+		provideUserRepository,
 		provideEventStore,
 		provideEventPublisher,
 		// Command Handlers (Write Operations)
@@ -265,8 +313,13 @@ func InitializeGRPCServer() (*grpc.GRPCServer, error) {
 		provideUserListQueryHandler,
 		provideUserGetByEmailQueryHandler,
 		provideUserEventsQueryHandler,
-		// Service
+		// Services
 		provideUserService,
+		provideJWTService,
+		providePasswordService,
+		provideAuthRegisterCommandHandler,
+		provideAuthLoginCommandHandler,
+		provideAuthService,
 		provideGRPCServer,
 	)
 	return &grpc.GRPCServer{}, nil

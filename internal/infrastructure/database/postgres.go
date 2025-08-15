@@ -1,19 +1,19 @@
 package database
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 
 	"go-clean-ddd-es-template/internal/infrastructure/config"
 
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+	_ "github.com/lib/pq"
 )
 
 // PostgresDB represents PostgreSQL database connection
 type PostgresDB struct {
 	config *config.DatabaseConfig
-	DB     *gorm.DB
+	DB     *sql.DB
 }
 
 // NewPostgresDB creates a new PostgreSQL database connection
@@ -29,14 +29,37 @@ func NewPostgresDB(cfg *config.DatabaseConfig) (*PostgresDB, error) {
 	return db, nil
 }
 
+// NewPostgresConnection creates a new PostgreSQL connection and returns *sql.DB
+func NewPostgresConnection(cfg config.DatabaseConfig) (*sql.DB, error) {
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName)
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open PostgreSQL connection: %w", err)
+	}
+
+	if err := db.Ping(); err != nil {
+		return nil, fmt.Errorf("failed to ping PostgreSQL: %w", err)
+	}
+
+	log.Printf("Connected to PostgreSQL database: %s", cfg.DBName)
+	return db, nil
+}
+
 // Connect establishes connection to PostgreSQL database
 func (p *PostgresDB) Connect() error {
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		p.config.Host, p.config.Port, p.config.User, p.config.Password, p.config.DBName)
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		return fmt.Errorf("failed to connect to PostgreSQL: %w", err)
+		return fmt.Errorf("failed to open PostgreSQL connection: %w", err)
+	}
+
+	// Test the connection
+	if err := db.Ping(); err != nil {
+		return fmt.Errorf("failed to ping PostgreSQL: %w", err)
 	}
 
 	p.DB = db
@@ -47,11 +70,7 @@ func (p *PostgresDB) Connect() error {
 // Close closes the database connection
 func (p *PostgresDB) Close() error {
 	if p.DB != nil {
-		sqlDB, err := p.DB.DB()
-		if err != nil {
-			return fmt.Errorf("failed to get underlying sql.DB: %w", err)
-		}
-		return sqlDB.Close()
+		return p.DB.Close()
 	}
 	return nil
 }
